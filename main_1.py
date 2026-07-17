@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 TOKEN = "8784413364:AAFWU5jqnRW4hBDONzcDDb_s9B4NzvzoxD4"
 DB_NAME = "lovebot.db"
-ADMIN_IDS = [123456789, 987654321]  # Список ID админов (замените на свои)
+ADMIN_IDS = [00001]  # Список ID админов (замените на свои)
 
 bot = telebot.TeleBot(TOKEN)
 
