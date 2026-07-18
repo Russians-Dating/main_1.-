@@ -12,7 +12,7 @@ from contextlib import contextmanager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-TOKEN = "8784413364:AAFWU5jqnRW4hBDONzcDDb_s9B4NzvzoxD4"
+TOKEN = "8885788738:AAEEu1kTreUmFfysfrhL1rGms7t0hpaNyd8"
 DB_NAME = "lovebot.db"
 ADMIN_IDS = [00001]  # Список ID админов (замените на свои)
 
