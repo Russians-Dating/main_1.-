@@ -17,7 +17,7 @@ from collections import Counter
 # ============================
 TOKEN = "8885788738:AAEEu1kTreUmFfysfrhL1rGms7t0hpaNyd8"
 ADMIN_IDS = []
-CHANNEL_USERNAME = "@Fisisisisisjyyyyy1"
+CHANNEL_USERNAME = "@Fisisisisisjyyyyy"
 BASHKIR_CITIES = [
     'Уфа', 'Агидель', 'Баймак', 'Белебей', 'Белорецк', 'Бирск',
     'Благовещенск', 'Давлеканово', 'Дюртюли', 'Ишимбай', 'Кумертау',
