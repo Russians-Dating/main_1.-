@@ -968,201 +968,240 @@ class BotApp:
         self.bot.send_message(user_id, stats, reply_markup=markup)
 
     # ==================== РЕГИСТРАЦИЯ ====================
-def reg_gender_handler(self, message):
-    user_id = message.from_user.id
-    gender = message.text.strip().lower()
-    if gender not in ['мужской', 'женский']:
-        self.bot.send_message(user_id, "Пожалуйста, выберите 'мужской' или 'женский'.")
-        return
-    self.db.update_user(user_id, gender='male' if gender == 'мужской' else 'female')
-    self.bot.delete_state(user_id, message.chat.id)
-    self.bot.set_state(user_id, UserStates.reg_search_gender, message.chat.id)
-    markup = types.InlineKeyboardMarkup(row_width=3)
-    markup.add(
-        types.InlineKeyboardButton("👨 Мужской", callback_data="search_gender_male"),
-        types.InlineKeyboardButton("👩 Женский", callback_data="search_gender_female"),
-        types.InlineKeyboardButton("👥 Всех", callback_data="search_gender_all")
-    )
-    self.bot.send_message(user_id, "Кого вы ищете?", reply_markup=markup)
+class BotApp:
+    def __init__(self, token):
+        self.bot = telebot.TeleBot(token)
+        self.db = Database()
+        self.user_filters = {}
+        self.register_handlers()
 
-def reg_search_gender_handler(self, message):
-    user_id = message.from_user.id
-    gender = message.text.strip().lower()
-    if gender not in ['мужской', 'женский', 'всех']:
-        self.bot.send_message(user_id, "Пожалуйста, выберите 'мужской', 'женский' или 'всех'.")
-        return
-    map_gender = {'мужской': 'male', 'женский': 'female', 'всех': 'all'}
-    self.db.update_user(user_id, search_gender=map_gender[gender])
-    self.bot.delete_state(user_id, message.chat.id)
-    self.bot.set_state(user_id, UserStates.reg_name, message.chat.id)
-    self.bot.send_message(user_id, "Как вас зовут? (Напишите имя)")
+    def register_handlers(self):
+        # Обработчики callback-запросов для регистрации
+        self.bot.callback_query_handler(
+            func=lambda call: call.data in ['gender_male', 'gender_female']
+        )(self.handle_gender_callback)
 
-def reg_name_handler(self, message):
-    user_id = message.from_user.id
-    name = message.text.strip()
-    if len(name) < 2:
-        self.bot.send_message(user_id, "Имя должно содержать хотя бы 2 символа. Попробуйте снова.")
-        return
-    self.db.update_user(user_id, name=name)
-    self.bot.delete_state(user_id, message.chat.id)
-    self.bot.set_state(user_id, UserStates.reg_age, message.chat.id)
-    self.bot.send_message(user_id, "Сколько вам лет? (От 14 до 100 лет)")
+        self.bot.callback_query_handler(
+            func=lambda call: call.data in ['search_gender_male', 'search_gender_female', 'search_gender_all']
+        )(self.handle_search_gender_callback)
 
-def reg_age_handler(self, message):
-    user_id = message.from_user.id
-    try:
-        age = int(message.text.strip())
-    except:
-        self.bot.send_message(user_id, "Пожалуйста, введите число.")
-        return
-    if age < 14 or age > 100:
-        self.bot.send_message(user_id, "Возраст должен быть от 14 до 100 лет.")
-        return
-    category = "14-17" if 14 <= age <= 17 else "18-100"
-    self.db.update_user(user_id, age=age, category=category)
-    self.bot.delete_state(user_id, message.chat.id)
-    self.bot.set_state(user_id, UserStates.reg_city, message.chat.id)
-    self.bot.send_message(user_id, "Из какого вы города? (Напишите город с большой буквы)\n\nДоступные города Башкортостана:\n" + ", ".join(BASHKIR_CITIES[:10]) + "...")
+        # Обработчики текстовых сообщений для остальных шагов регистрации
+        self.bot.message_handler(state=UserStates.reg_name)(self.reg_name_handler)
+        self.bot.message_handler(state=UserStates.reg_age)(self.reg_age_handler)
+        self.bot.message_handler(state=UserStates.reg_city)(self.reg_city_handler)
+        self.bot.message_handler(state=UserStates.reg_about)(self.reg_about_handler)
+        self.bot.message_handler(state=UserStates.reg_interests)(self.reg_interests_handler)
+        self.bot.message_handler(content_types=['photo'], state=UserStates.reg_photo)(self.reg_photo_handler)
+        self.bot.callback_query_handler(func=lambda call: call.data in ['confirm_reg_yes', 'confirm_reg_no'])(self.handle_confirm_callback)
 
-def reg_city_handler(self, message):
-    user_id = message.from_user.id
-    city = message.text.strip()
-    if not re.match(RUSSIAN_CITIES_PATTERN, city):
-        self.bot.send_message(user_id, "Введите город с большой буквы, используя кириллицу. Например: Уфа")
-        return
-    if city not in BASHKIR_CITIES:
-        self.bot.send_message(user_id, f"Пожалуйста, введите город из списка Башкортостана:\n" + ", ".join(BASHKIR_CITIES))
-        return
-    self.db.update_user(user_id, city=city)
-    self.bot.delete_state(user_id, message.chat.id)
-    self.bot.set_state(user_id, UserStates.reg_about, message.chat.id)
-    self.bot.send_message(user_id, "Напишите о себе пару слов (Чем занимаетесь, что ищете и т.д.)")
+    # Команда /start
+    def cmd_start(self, message):
+        user_id = message.from_user.id
+        user = self.db.get_user(user_id)
 
-def reg_about_handler(self, message):
-    user_id = message.from_user.id
-    about = message.text.strip()
-    if len(about) < 5:
-        self.bot.send_message(user_id, "Расскажите о себе подробнее (минимум 5 символов).")
-        return
-    self.db.update_user(user_id, about=about)
-    self.bot.delete_state(user_id, message.chat.id)
-    self.bot.set_state(user_id, UserStates.reg_interests, message.chat.id)
-    self.bot.send_message(user_id, "Ваши интересы? (Через запятую: кино, спорт,
+        if not user:
+            self.db.create_user(
+                user_id,
+                message.from_user.username,
+                message.from_user.first_name,
+                message.from_user.last_name
+            )
+            user = self.db.get_user(user_id)
 
+        if user['status'] == 'blocked':
+            self.bot.send_message(user_id, "Ваш аккаунт заблокирован. Обратитесь в поддержку.")
+            return
 
-книги...)")
+        if not user['has_subscribed']:
+            self.db.update_user(user_id, has_subscribed=1)
+            user = self.db.get_user(user_id)
 
-def reg_interests_handler(self, message):
-    user_id = message.from_user.id
-    interests = message.text.strip()
-    if len(interests) < 2:
-        self.bot.send_message(user_id, "Введите хотя бы один интерес.")
-        return
-    self.db.update_user(user_id, interests=interests)
-    self.bot.delete_state(user_id, message.chat.id)
-    self.send_tag_selection(user_id, "reg_tags")
+        if not user['registered']:
+            # Начинаем регистрацию с выбора пола
+            self.start_registration(user_id)
+        else:
+            self.start_search(user_id)
 
-def reg_photo_handler(self, message):
-    user_id = message.from_user.id
-    if not message.photo:
-        self.bot.send_message(user_id, "Пожалуйста, отправьте фото.")
-        return
-    file_id = message.photo[-1].file_id
-    self.db.update_user(user_id, photo_file_id=file_id)
-    self.bot.delete_state(user_id, message.chat.id)
-    self.bot.set_state(user_id, UserStates.reg_confirm, message.chat.id)
-    self.show_profile_for_confirm(user_id)
+    def start_registration(self, user_id):
+        """Начинаем процесс регистрации"""
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            types.InlineKeyboardButton("👨 Мужской", callback_data="gender_male"),
+            types.InlineKeyboardButton("👩 Женский", callback_data="gender_female")
+        )
+        self.bot.send_message(user_id, "Выберите свой пол:", reply_markup=markup)
 
-def reg_name_handler(self, message):
-    user_id = message.from_user.id
-    name = message.text.strip()
-    if len(name) < 2:
-        self.bot.send_message(user_id, "Имя должно содержать хотя бы 2 символа. Попробуйте снова.")
-        return
-    self.db.update_user(user_id, name=name)
-    self.bot.delete_state(user_id)
-    self.bot.set_state(user_id, UserStates.reg_age)
-    self.bot.send_message(user_id, "Сколько вам лет? (От 14 до 100 лет)")
+    def handle_gender_callback(self, call):
+        """Обрабатываем выбор пола через кнопки"""
+        user_id = call.from_user.id
+        gender_map = {'gender_male': 'male', 'gender_female': 'female'}
+        gender = gender_map.get(call.data)
 
-def reg_age_handler(self, message):
-    user_id = message.from_user.id
-    try:
-        age = int(message.text.strip())
-    except:
-        self.bot.send_message(user_id, "Пожалуйста, введите число.")
-        return
-    if age < 14 or age > 100:
-        self.bot.send_message(user_id, "Возраст должен быть от 14 до 100 лет.")
-        return
-    category = "14-17" if 14 <= age <= 17 else "18-100"
-    self.db.update_user(user_id, age=age, category=category)
-    self.bot.delete_state(user_id)
-    self.bot.set_state(user_id, UserStates.reg_city)
-    self.bot.send_message(user_id, "Из какого вы города? (Напишите город с большой буквы)\n\nДоступные города Башкортостана:\n" + ", ".join(BASHKIR_CITIES[:10]) + "...")
+        if not gender:
+            return
 
-def reg_city_handler(self, message):
-    user_id = message.from_user.id
-    city = message.text.strip()
-    if not re.match(RUSSIAN_CITIES_PATTERN, city):
-        self.bot.send_message(user_id, "Введите город с большой буквы, используя кириллицу. Например: Уфа")
-        return
-    if city not in BASHKIR_CITIES:
-        self.bot.send_message(user_id, f"Пожалуйста, введите город из списка Башкортостана:\n" + ", ".join(BASHKIR_CITIES))
-        return
-    self.db.update_user(user_id, city=city)
-    self.bot.delete_state(user_id)
-    self.bot.set_state(user_id, UserStates.reg_about)
-    self.bot.send_message(user_id, "Напишите о себе пару слов (Чем занимаетесь, что ищете и т.д.)")
+        self.db.update_user(user_id, gender=gender)
+        self.bot.set_state(user_id, UserStates.reg_search_gender)
 
-def reg_about_handler(self, message):
-    user_id = message.from_user.id
-    about = message.text.strip()
-    if len(about) < 5:
-        self.bot.send_message(user_id, "Расскажите о себе подробнее (минимум 5 символов).")
-        return
-    self.db.update_user(user_id, about=about)
-    self.bot.delete_state(user_id)
-    self.bot.set_state(user_id, UserStates.reg_interests)
-    self.bot.send_message(user_id, "Ваши интересы? (Через запятую: кино, спорт, книги...)")
+        markup = types.InlineKeyboardMarkup(row_width=3)
+        markup.add(
+            types.InlineKeyboardButton("👨 Мужской", callback_data="search_gender_male"),
+            types.InlineKeyboardButton("👩 Женский", callback_data="search_gender_female"),
+            types.InlineKeyboardButton("👥 Всех", callback_data="search_gender_all")
+        )
 
-def reg_interests_handler(self, message):
-    user_id = message.from_user.id
-    interests = message.text.strip()
-    if len(interests) < 2:
-        self.bot.send_message(user_id, "Введите х
+        self.bot.answer_callback_query(call.id)
+        self.bot.send_message(user_id, "Кого вы ищете?", reply_markup=markup)
+
+    def handle_search_gender_callback(self, call):
+        """Обрабатываем выбор пола для поиска"""
+        user_id = call.from_user.id
+        mapping = {
+            'search_gender_male': 'male',
+            'search_gender_female': 'female',
+            'search_gender_all': 'all'
+        }
+        search_gender = mapping.get(call.data)
+
+        if not search_gender:
+            return
+
+        self.db.update_user
+call.id – Domain name for sale
+call.id
 
 
-отя бы один интерес.")
-        return
-    self.db.update_user(user_id, interests=interests)
-    self.bot.delete_state(user_id)
-    self.send_tag_selection(user_id, "reg_tags")
+(user_id, search_gender=search_gender)
+        self.bot.set_state(user_id, UserStates.reg_name)
+        self.bot.answer_callback_query(call.id)
+        self.bot.send_message(user_id, "Как вас зовут? (Напишите имя)")
 
-def reg_photo_handler(self, message):
-    user_id = message.from_user.id
-    if not message.photo:
-        self.bot.send_message(user_id, "Пожалуйста, отправьте фото.")
-        return
-    file_id = message.photo[-1].file_id
-    self.db.update_user(user_id, photo_file_id=file_id)
-    self.bot.delete_state(user_id)
-    self.bot.set_state(user_id, UserStates.reg_confirm)
-    self.show_profile_for_confirm(user_id)
+    def reg_name_handler(self, message):
+        """Обрабатываем ввод имени"""
+        user_id = message.from_user.id
+        name = message.text.strip()
 
-    def reg_confirm_handler(self, message):
-        pass
+        if len(name) < 2:
+            self.bot.send_message(user_id, "Имя должно содержать минимум 2 символа. Попробуйте ещё раз:")
+            return
+
+        self.db.update_user(user_id, name=name)
+        self.bot.set_state(user_id, UserStates.reg_age)
+        self.bot.send_message(user_id, "Сколько вам лет? (14–100)")
+
+    def reg_age_handler(self, message):
+        """Обрабатываем ввод возраста"""
+        user_id = message.from_user.id
+
+        try:
+            age = int(message.text)
+            if age < 14 or age > 100:
+                self.bot.send_message(user_id, "Возраст должен быть от 14 до 100 лет. Попробуйте ещё раз:")
+                return
+        except ValueError:
+            self.bot.send_message(user_id, "Пожалуйста, введите число (возраст):")
+            return
+
+        self.db.update_user(user_id, age=age)
+        self.bot.set_state(user_id, UserStates.reg_city)
+        self.bot.send_message(user_id, "Из какого вы города? (Напишите название)")
+
+    def reg_city_handler(self, message):
+        """Обрабатываем ввод города"""
+        user_id = message.from_user.id
+        city = message.text.strip()
+
+        if len(city) < 2:
+            self.bot.send_message(user_id, "Название города должно содержать минимум 2 символа. Попробуйте ещё раз:")
+            return
+
+        self.db.update_user(user_id, city=city)
+        self.bot.set_state(user_id, UserStates.reg_about)
+        self.bot.send_message(user_id, "Расскажите о себе (20–200 символов):")
+
+    def reg_about_handler(self, message):
+        """Обрабатываем описание о себе"""
+        user_id = message.from_user.id
+        about = message.text.strip()
+
+        if len(about) < 20 or len(about) > 200:
+            self.bot.send_message(user_id, "Описание должно быть от 20 до 200 символов. Попробуйте ещё раз:")
+            return
+
+        self.db.update_user(user_id, about=about)
+        self.bot.set_state(user_id, UserStates.reg_interests)
+        self.bot.send_message(user_id, "Ваши интересы (через запятую):")
+
+    def reg_interests_handler(self, message):
+        """Обрабатываем интересы"""
+        user_id = message.from_user.id
+        interests = message.text.strip()
+
+        if len(interests) < 5:
+            self.bot.send_message(user_id, "Интересы должны содержать минимум 5 символов. Попробуйте ещё раз:")
+            return
+
+        self.db.update_user(user_id, interests=interests)
+        self.bot.set_state(user_id, UserStates.reg_photo)
+        self.bot.send_message(user_id, "Теперь отправьте фото для вашего профиля:")
+
+    def reg_photo_handler(self, message):
+        """Обрабатываем фото"""
+        user_id = message.from_user.id
+
+        if message.content_type != 'photo':
+            self.bot.send_message(user_id, "Пожалуйста, отправьте фото:")
+            return
+
+        photo_file_id = message.photo[-1].file_id
+        self.db.update_user(user_id, photo_file_id=photo_file_id)
+        self.bot.set_state(user_id, UserStates.reg_confirm)
+        self.show_profile_for_confirm(user_id)
 
     def show_profile_for_confirm(self, user_id):
+        """Показываем профиль для подтверждения"""
         user = self.db.get_user(user_id)
         gender_text = "Мужской" if user.get('gender') == 'male' else "Женский"
-        text = f"Профиль создан!\n\nИмя: {user['name']}\nВозраст: {user['age']}\nГород: {user['city']}\nО себе: {user['about']}\nИнтересы: {user['interests']}\nТеги: {user['tags']}\nПол: {gender_text}"
+
+        text = (
+            f"Профиль создан!\n\n"
+            f"Имя: {user['name']}\n"
+            f"Возраст: {user['age']}\n"
+            f"Город: {user['city']}\n"
+            f"О себе: {user['about']}\n"
+            f"Интересы: {user['interests']}\n"
+            f"Пол: {gender_text}"
+        )
+
         markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("✅ ВСЁ ВЕРНО", callback_data="confirm_reg_yes"))
-        markup.add(types.InlineKeyboardButton("🔄 ИЗМЕНИТЬ", callback_data="confirm_reg_no"))
+        markup.add(
+            types.Inline
+call.id – Domain name for sale
+call.id
+
+
+KeyboardButton("✅ ВСЁ ВЕРНО", callback_data="confirm_reg_yes"),
+            types.InlineKeyboardButton("🔄 ИЗМЕНИТЬ", callback_data="confirm_reg_no")
+        )
+
         if user['photo_file_id']:
             self.bot.send_photo(user_id, user['photo_file_id'], caption=text, reply_markup=markup)
         else:
             self.bot.send_message(user_id, text, reply_markup=markup)
+
+    def handle_confirm_callback(self, call):
+        """Обрабатываем подтверждение профиля"""
+        user_id = call.from_user.id
+
+        if call.data == 'confirm_reg_yes':
+            self.db.set_registered(user_id)
+            self.bot.answer_callback_query(call.id, "Регистрация завершена!")
+            self.bot.send_message(user_id, "Поздравляем! Регистрация завершена. Теперь вы можете искать новых знакомств!")
+            self.start_search(user_id)
+        elif call.data == 'confirm_reg_no':
+            self.bot.answer_callback_query(call.id)
+            self.bot.send_message(user_id, "Давайте начнём регистрацию заново:")
+            self.start_registration(user_id)
 
     # ==================== АДМИН КОМАНДЫ ====================
 
