@@ -968,16 +968,15 @@ class BotApp:
         self.bot.send_message(user_id, stats, reply_markup=markup)
 
     # ==================== РЕГИСТРАЦИЯ ====================
-
-   def reg_gender_handler(self, message):
+def reg_gender_handler(self, message):
     user_id = message.from_user.id
     gender = message.text.strip().lower()
     if gender not in ['мужской', 'женский']:
         self.bot.send_message(user_id, "Пожалуйста, выберите 'мужской' или 'женский'.")
         return
     self.db.update_user(user_id, gender='male' if gender == 'мужской' else 'female')
-    self.bot.delete_state(user_id)
-    self.bot.set_state(user_id, UserStates.reg_search_gender)
+    self.bot.delete_state(user_id, message.chat.id)
+    self.bot.set_state(user_id, UserStates.reg_search_gender, message.chat.id)
     markup = types.InlineKeyboardMarkup(row_width=3)
     markup.add(
         types.InlineKeyboardButton("👨 Мужской", callback_data="search_gender_male"),
@@ -994,9 +993,85 @@ def reg_search_gender_handler(self, message):
         return
     map_gender = {'мужской': 'male', 'женский': 'female', 'всех': 'all'}
     self.db.update_user(user_id, search_gender=map_gender[gender])
-    self.bot.delete_state(user_id)
-    self.bot.set_state(user_id, UserStates.reg_name)
+    self.bot.delete_state(user_id, message.chat.id)
+    self.bot.set_state(user_id, UserStates.reg_name, message.chat.id)
     self.bot.send_message(user_id, "Как вас зовут? (Напишите имя)")
+
+def reg_name_handler(self, message):
+    user_id = message.from_user.id
+    name = message.text.strip()
+    if len(name) < 2:
+        self.bot.send_message(user_id, "Имя должно содержать хотя бы 2 символа. Попробуйте снова.")
+        return
+    self.db.update_user(user_id, name=name)
+    self.bot.delete_state(user_id, message.chat.id)
+    self.bot.set_state(user_id, UserStates.reg_age, message.chat.id)
+    self.bot.send_message(user_id, "Сколько вам лет? (От 14 до 100 лет)")
+
+def reg_age_handler(self, message):
+    user_id = message.from_user.id
+    try:
+        age = int(message.text.strip())
+    except:
+        self.bot.send_message(user_id, "Пожалуйста, введите число.")
+        return
+    if age < 14 or age > 100:
+        self.bot.send_message(user_id, "Возраст должен быть от 14 до 100 лет.")
+        return
+    category = "14-17" if 14 <= age <= 17 else "18-100"
+    self.db.update_user(user_id, age=age, category=category)
+    self.bot.delete_state(user_id, message.chat.id)
+    self.bot.set_state(user_id, UserStates.reg_city, message.chat.id)
+    self.bot.send_message(user_id, "Из какого вы города? (Напишите город с большой буквы)\n\nДоступные города Башкортостана:\n" + ", ".join(BASHKIR_CITIES[:10]) + "...")
+
+def reg_city_handler(self, message):
+    user_id = message.from_user.id
+    city = message.text.strip()
+    if not re.match(RUSSIAN_CITIES_PATTERN, city):
+        self.bot.send_message(user_id, "Введите город с большой буквы, используя кириллицу. Например: Уфа")
+        return
+    if city not in BASHKIR_CITIES:
+        self.bot.send_message(user_id, f"Пожалуйста, введите город из списка Башкортостана:\n" + ", ".join(BASHKIR_CITIES))
+        return
+    self.db.update_user(user_id, city=city)
+    self.bot.delete_state(user_id, message.chat.id)
+    self.bot.set_state(user_id, UserStates.reg_about, message.chat.id)
+    self.bot.send_message(user_id, "Напишите о себе пару слов (Чем занимаетесь, что ищете и т.д.)")
+
+def reg_about_handler(self, message):
+    user_id = message.from_user.id
+    about = message.text.strip()
+    if len(about) < 5:
+        self.bot.send_message(user_id, "Расскажите о себе подробнее (минимум 5 символов).")
+        return
+    self.db.update_user(user_id, about=about)
+    self.bot.delete_state(user_id, message.chat.id)
+    self.bot.set_state(user_id, UserStates.reg_interests, message.chat.id)
+    self.bot.send_message(user_id, "Ваши интересы? (Через запятую: кино, спорт,
+
+
+книги...)")
+
+def reg_interests_handler(self, message):
+    user_id = message.from_user.id
+    interests = message.text.strip()
+    if len(interests) < 2:
+        self.bot.send_message(user_id, "Введите хотя бы один интерес.")
+        return
+    self.db.update_user(user_id, interests=interests)
+    self.bot.delete_state(user_id, message.chat.id)
+    self.send_tag_selection(user_id, "reg_tags")
+
+def reg_photo_handler(self, message):
+    user_id = message.from_user.id
+    if not message.photo:
+        self.bot.send_message(user_id, "Пожалуйста, отправьте фото.")
+        return
+    file_id = message.photo[-1].file_id
+    self.db.update_user(user_id, photo_file_id=file_id)
+    self.bot.delete_state(user_id, message.chat.id)
+    self.bot.set_state(user_id, UserStates.reg_confirm, message.chat.id)
+    self.show_profile_for_confirm(user_id)
 
 def reg_name_handler(self, message):
     user_id = message.from_user.id
