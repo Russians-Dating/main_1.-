@@ -35,7 +35,7 @@ logging.basicConfig(
 log = logging.getLogger("dating_bot")
 
 class Config:
-    BOT_TOKEN: str = os.environ.get("BOT_TOKEN", "")
+    BOT_TOKEN: str = os.environ.get("8885788738:AAEEu1kTreUmFfysfrhL1rGms7t0hpaNyd8", "")
     DB_PATH: str = os.environ.get("DB_PATH", "dating_platform.db")
     OWNER_IDS: set[int] = {
         int(x) for x in os.environ.get("OWNER_IDS", "").split(",") if x.strip().isdigit()
