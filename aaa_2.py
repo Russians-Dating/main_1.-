@@ -16,7 +16,7 @@ from collections import Counter
 # 1. КОНФИГ
 # ============================
 import os
-TOKEN = os.environ.get("8784413364:AAFWU5jqnRW4hBDONzcDDb_s9B4NzvzoxD4", "")
+TOKEN = os.environ.get("8784413364:AAFWU5jqnRW4hBDONzcDDb_s9B4NzvzoxD4")
 ADMIN_IDS = []
 CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME", "@RussianDatingChannel")
 MASTER_ADMIN_ID = int(os.environ.get("MASTER_ADMIN_ID", "0"))
