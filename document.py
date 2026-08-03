@@ -16,7 +16,7 @@ import os
 # ============================
 # 1. КОНФИГУРАЦИЯ
 # ============================
-TOKEN = os.environ.get("BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN")
+TOKEN = os.environ.get("792:AAHWkN5E2dA30IJlb9CULHydqRo8CjwZr6k")
 ADMIN_IDS = []
 CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME", "@RussianDatingChannel")
 MASTER_ADMIN_ID = int(os.environ.get("MASTER_ADMIN_ID", "0"))
