@@ -13,7 +13,7 @@ import re
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-TOKEN = "8763841108:AAHppdTyllIvOvMLy5ohpgqr6XwDPLZXwOY"
+TOKEN = "7790448792:AAHWkN5E2dA30IJlb9CULHydqRo8CjwZr6k"
 DB_NAME = "lovebot.db"
 ADMIN_IDS = [1643501676]  # Список ID админов (замените на свои)
 CHANNEL_ID = "@tavejr7"  # Замените на ваш канал
