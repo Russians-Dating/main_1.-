@@ -1,0 +1,10 @@
+BOT_TOKEN=8118650542:AAHyfxh-FLdDmfnNx9J1tUYvkAB1-DS6VZs
+DB_NAME=lovebot.db
+ADMIN_IDS=1643501676
+CHANNEL_ID=@tavejr7
+CHANNEL_URL=https://t.me/tavejr7
+BOT_USERNAME=Ywggg17bot
+
+# Реферальная система: за каждые N друзей — M дней премиума
+REFERRAL_REWARD_COUNT=10
+REFERRAL_REWARD_DAYS=1
